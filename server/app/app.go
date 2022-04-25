@@ -1,8 +1,8 @@
 package app
 
 import (
-	"personal/Go/Projects/video_backend/server/media"
-	"personal/Go/Projects/video_backend/server/types"
+	"github.com/dukryung/media_backend/server/media"
+	"github.com/dukryung/media_backend/server/types"
 )
 
 type App struct {

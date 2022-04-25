@@ -10,13 +10,13 @@ service Media {
   rpc RequestMedia(MediaRequest) returns (MediaResponse) {
     option (google.api.http) = {
       post: "/request/media"
-      body:"*"
+      body: "*"
     };
   }
 }
 
 message MediaRequest {
-  string code = 1;
+  string data = 1;
 }
 
 message MediaResponse {

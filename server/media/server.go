@@ -3,13 +3,15 @@ package media
 import (
 	"context"
 	"fmt"
+	"github.com/dukryung/media_backend/server/types"
+	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/rs/cors"
 	"google.golang.org/grpc"
-	"github.com/golang/protobuf/proto"
+	"log"
 	"net"
 	"net/http"
-	"personal/Go/Projects/video_backend/server/types"
+
 )
 
 type Server struct {
@@ -28,6 +30,8 @@ func NewServer(config types.AppConfig) *Server {
 }
 
 func (s *Server) Run() {
+	go s.RunGateway()
+
 	listen, err := net.Listen("tcp", s.config.Server.GRPCAddress)
 	if err != nil {
 		panic(err)
@@ -59,7 +63,7 @@ func (s *Server) registerHandler() {
 		grpc.WithInsecure(),
 	)
 	if err != nil {
-		fmt.Println("grpc error")
+		log.Println("err : ",err)
 	}
 
 	allowCors := func(ctx context.Context, w http.ResponseWriter, resp proto.Message) error {
@@ -74,8 +78,25 @@ func (s *Server) registerHandler() {
 
 	err = RegisterMediaHandler(context.Background(),s.grpcMux,conn)
 	if err != nil {
-		fmt.Println(err)
+		log.Println("err : ",err)
 	}
 
 }
 
+func (s *Server) RequestMedia(ctx context.Context, req *MediaRequest) (*MediaResponse, error) {
+	log.Println("req")
+	conn , err := grpc.DialContext(ctx, s.config.Server.GRPCAddress,grpc.WithInsecure())
+	if err != nil {
+		log.Println("err : ",err)
+		return nil, err
+	}
+
+	defer conn.Close()
+
+	data := req.Data
+
+	fmt.Println("data : ",string(data))
+
+	return &MediaResponse{ Code: "200" }, nil
+
+}

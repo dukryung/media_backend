@@ -1,9 +1,9 @@
 package main
 
 import (
+	"github.com/dukryung/media_backend/server/app"
 	"os"
 	"os/signal"
-	"personal/Go/Projects/video_backend/server/app"
 	"syscall"
 )
 

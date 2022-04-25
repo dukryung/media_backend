@@ -35,7 +35,7 @@ func (config *AppConfig) LoadAppConfig(configPath string) error {
 	}
 
 
-	log.Println("!!!!!!!!!!!!!!!!!!!!:", string(data))
+	log.Println( string(data))
 	return nil
 }
 

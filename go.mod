@@ -1,4 +1,4 @@
-module personal/Go/Projects/video_backend
+module github.com/dukryung/media_backend
 
 go 1.17
 
