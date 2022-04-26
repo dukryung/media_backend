@@ -8,6 +8,7 @@ import (
 type App struct {
 	servers []types.Server
 	appConfig types.AppConfig
+	mediaServer *media.Server
 }
 
 func NewApp(configPath string) *App {
@@ -25,9 +26,10 @@ func NewApp(configPath string) *App {
 }
 
 func (app *App) initServers() {
-	mediaServer := media.NewServer(app.appConfig)
+	app.mediaServer = media.NewServer(app.appConfig)
 
-	app.servers = append(app.servers,mediaServer)
+	media.RegisterMediaServer(app.mediaServer.GrpcServer,app.mediaServer)
+	app.servers = append(app.servers, app.mediaServer)
 
 }
 

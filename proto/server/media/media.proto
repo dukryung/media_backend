@@ -16,7 +16,7 @@ service Media {
 }
 
 message MediaRequest {
-  string data = 1;
+  bytes data = 1;
 }
 
 message MediaResponse {

@@ -2,19 +2,23 @@ package media
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"github.com/dukryung/media_backend/server/types"
-	"github.com/golang/protobuf/proto"
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"github.com/rs/cors"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
 	"log"
 	"net"
 	"net/http"
-
+	"os"
 )
 
 type Server struct {
+	MediaServer
+
 	GrpcServer *grpc.Server
 	config     types.AppConfig
 	grpcMux    *runtime.ServeMux
@@ -24,15 +28,16 @@ type Server struct {
 
 func NewServer(config types.AppConfig) *Server {
 	return &Server{
-		config: config,
+		config:     config,
 		GrpcServer: grpc.NewServer(),
 	}
 }
 
 func (s *Server) Run() {
+
 	go s.RunGateway()
 
-	listen, err := net.Listen("tcp", s.config.Server.GRPCAddress)
+	listen, err := net.Listen("tcp", fmt.Sprintf(":%s", s.config.Server.GRPCAddress))
 	if err != nil {
 		panic(err)
 	}
@@ -46,25 +51,14 @@ func (s *Server) Close() {
 func (s *Server) RunGateway() {
 	s.registerHandler()
 
-	gateway := http.Server{
-		Addr:    s.config.Server.GatewayAddress,
-		Handler: cors.Default().Handler(s.grpcMux),
+	err := http.ListenAndServe(fmt.Sprintf(":%s", s.config.Server.GatewayAddress), s.grpcMux)
+	if err != nil {
+		log.Println(err)
+		panic(err)
 	}
-
-	gateway.ListenAndServe()
 }
 
 func (s *Server) registerHandler() {
-
-	conn, err := grpc.DialContext(
-		context.Background(),
-		s.config.Server.GRPCAddress,
-		grpc.WithBlock(),
-		grpc.WithInsecure(),
-	)
-	if err != nil {
-		log.Println("err : ",err)
-	}
 
 	allowCors := func(ctx context.Context, w http.ResponseWriter, resp proto.Message) error {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -72,31 +66,38 @@ func (s *Server) registerHandler() {
 		w.Header().Set("Access-Control-Allow-Methods", "*")
 		return nil
 	}
-	s.grpcMux = runtime.NewServeMux(
-		runtime.WithForwardResponseOption(allowCors),
-	)
 
-	err = RegisterMediaHandler(context.Background(),s.grpcMux,conn)
+	s.grpcMux = runtime.NewServeMux(runtime.WithForwardResponseOption(allowCors))
+	s.grpcMux.HandlePath("POST", "request/file", handlerBinaryFileUpload)
+
+	grpcServerEndpoint := flag.String("grpc-server-endpoint", fmt.Sprintf("localhost:%s", s.config.Server.GRPCAddress), "gRPC server endpoint")
+
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	err := RegisterMediaHandlerFromEndpoint(context.Background(), s.grpcMux, *grpcServerEndpoint, opts)
 	if err != nil {
-		log.Println("err : ",err)
+		log.Println("err : ", err)
 	}
-
 }
 
 func (s *Server) RequestMedia(ctx context.Context, req *MediaRequest) (*MediaResponse, error) {
-	log.Println("req")
-	conn , err := grpc.DialContext(ctx, s.config.Server.GRPCAddress,grpc.WithInsecure())
+
+	imgFile, err := os.Create("./test.jpg")
 	if err != nil {
-		log.Println("err : ",err)
+		log.Println("err : ", err)
+		return nil, err
+	}
+	defer imgFile.Close()
+
+	_, err = imgFile.Write(req.Data)
+	if err != nil {
+		log.Println("err : ", err)
 		return nil, err
 	}
 
-	defer conn.Close()
+	return &MediaResponse{Code: "200"}, nil
 
-	data := req.Data
+}
 
-	fmt.Println("data : ",string(data))
-
-	return &MediaResponse{ Code: "200" }, nil
-
+func handlerBinaryFileUpload(w http.ResponseWriter, r *http.Request, params map[string]string) {
+	log.Println("upload file")
 }
