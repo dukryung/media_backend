@@ -6,12 +6,11 @@ import (
 	"io"
 	"io/ioutil"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
-
-	//"io/ioutil"
-	"net/http"
+	"sync"
 	"testing"
 )
 
@@ -42,31 +41,42 @@ func TestRequestMedia(t *testing.T) {
 }
 
 func TestPostFile(t *testing.T) {
+	var wg sync.WaitGroup
 
-	fileName := "IU.mp4"
-	filePath := path.Join("../../public/", fileName)
 
-	file, err := os.Open(filePath)
-	if err != nil {
-		t.Log("err : ",err)
-		return
+	for i := 0 ; i < 10000 ; i++ {
+		wg.Add(1)
+		go func () {
+			defer wg.Done()
+			fileName := "test.jpg"
+			filePath := path.Join("../../public/", fileName)
+
+			file, err := os.Open(filePath)
+			if err != nil {
+				t.Log("err : ", err)
+				return
+			}
+			defer file.Close()
+
+			body := &bytes.Buffer{}
+			writer := multipart.NewWriter(body)
+			part, err := writer.CreateFormFile("attachment", filepath.Base(file.Name()))
+			if err != nil {
+				t.Log("err : ", err)
+				return
+			}
+
+			io.Copy(part, file)
+
+			writer.Close()
+
+			r, _ := http.NewRequest("POST", "http://localhost:10424/request/file", body)
+			r.Header.Add("Content-Type", writer.FormDataContentType())
+			client := &http.Client{}
+			client.Do(r)
+
+		}()
 	}
-	defer file.Close()
+	wg.Wait()
 
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", filepath.Base(file.Name()))
-	if err != nil {
-		t.Log("err : ",err)
-		return
-	}
-
-	io.Copy(part, file)
-
-	writer.Close()
-
-	r, _ := http.NewRequest("POST", "http://localhost:10424/request/file", body)
-	r.Header.Add("Content-Type", writer.FormDataContentType())
-	client := &http.Client{}
-	client.Do(r)
 }

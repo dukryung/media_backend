@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 	"io"
+	"math/rand"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
@@ -117,7 +118,12 @@ func handlerBinaryFileUpload(w http.ResponseWriter, r *http.Request, params map[
 	}
 	defer file.Close()
 
-	f, err := os.OpenFile("./downloaded.mp4", os.O_WRONLY|os.O_CREATE, 0666)
+	var chars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0987654321")
+	str := make([]rune, 5)
+	for i := range str {
+		str[i] = chars[rand.Intn(len(chars))]
+	}
+	f, err := os.OpenFile(fmt.Sprintf("./testfile/%s.jpg",string(str)), os.O_WRONLY|os.O_CREATE, 0666)
 	defer f.Close()
 
 	io.Copy(f, file)
