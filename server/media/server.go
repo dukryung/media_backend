@@ -7,6 +7,7 @@ import (
 	"github.com/dukryung/media_backend/server/types"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
+	"io"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
@@ -68,15 +69,18 @@ func (s *Server) registerHandler() {
 	}
 
 	s.grpcMux = runtime.NewServeMux(runtime.WithForwardResponseOption(allowCors))
-	s.grpcMux.HandlePath("POST", "request/file", handlerBinaryFileUpload)
-
+	err := s.grpcMux.HandlePath("POST", "/request/file", handlerBinaryFileUpload)
+	if err != nil {
+		print(err.Error())
+	}
 	grpcServerEndpoint := flag.String("grpc-server-endpoint", fmt.Sprintf("localhost:%s", s.config.Server.GRPCAddress), "gRPC server endpoint")
 
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-	err := RegisterMediaHandlerFromEndpoint(context.Background(), s.grpcMux, *grpcServerEndpoint, opts)
+	err = RegisterMediaHandlerFromEndpoint(context.Background(), s.grpcMux, *grpcServerEndpoint, opts)
 	if err != nil {
 		log.Println("err : ", err)
 	}
+
 }
 
 func (s *Server) RequestMedia(ctx context.Context, req *MediaRequest) (*MediaResponse, error) {
@@ -100,4 +104,22 @@ func (s *Server) RequestMedia(ctx context.Context, req *MediaRequest) (*MediaRes
 
 func handlerBinaryFileUpload(w http.ResponseWriter, r *http.Request, params map[string]string) {
 	log.Println("upload file")
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to parse form: %s", err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	file, _, err := r.FormFile("attachment")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get file 'attachment': %s", err.Error()), http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	f, err := os.OpenFile("./downloaded.mp4", os.O_WRONLY|os.O_CREATE, 0666)
+	defer f.Close()
+
+	io.Copy(f, file)
+
 }
